@@ -6,12 +6,54 @@
 
 ## 🚀 วิธีติดตั้งและรันแอป
 
-### ความต้องการของระบบ
-- Python 3.10+
-- Node.js 18+
-- npm
+### วิธีที่ 1 — Docker (แนะนำ)
 
-### รันด้วยคำสั่งเดียว
+**ความต้องการ:** [Docker](https://docs.docker.com/get-docker/) และ Docker Compose
+
+```bash
+# รันทุกอย่างด้วยคำสั่งเดียว
+docker compose up -d --build
+```
+
+จากนั้นเปิดเบราว์เซอร์ไปที่:
+- **แอป:** http://localhost
+- **API Docs:** http://localhost:8000/docs
+
+```bash
+# ดู logs
+docker compose logs -f
+
+# หยุดแอป
+docker compose down
+
+# หยุดแอปและลบข้อมูลทั้งหมด
+docker compose down -v
+```
+
+> **ข้อมูล** ถูกเก็บใน Docker volume ชื่อ `db_data` — จะยังอยู่แม้รัน `docker compose down` แต่จะหายถ้าใช้ `-v`
+
+#### Environment Variables (Docker)
+
+สามารถกำหนดค่าใน `docker-compose.yml` หรือสร้างไฟล์ `.env` ในโฟลเดอร์เดียวกัน:
+
+| Variable | ค่าเริ่มต้น | คำอธิบาย |
+|----------|------------|----------|
+| `SECRET_KEY` | `change-me-in-production-...` | JWT secret key — **เปลี่ยนก่อน deploy จริง** |
+| `DATABASE_URL` | `sqlite:////app/data/todolist.db` | URL ของฐานข้อมูล |
+
+ตัวอย่าง `.env`:
+```env
+SECRET_KEY=my-super-secret-key-at-least-32-chars
+DATABASE_URL=sqlite:////app/data/todolist.db
+```
+
+---
+
+### วิธีที่ 2 — Manual (สำหรับ Development)
+
+**ความต้องการ:** Python 3.10+, Node.js 18+, npm
+
+#### รันด้วยคำสั่งเดียว
 
 ```bash
 chmod +x start.sh
@@ -22,7 +64,7 @@ chmod +x start.sh
 - **แอป:** http://localhost:5173
 - **API Docs:** http://localhost:8000/docs
 
-### หรือรันแยก Backend / Frontend
+#### หรือรันแยก Backend / Frontend
 
 **Backend**
 ```bash
@@ -120,7 +162,7 @@ npm run dev
 
 #### สีสัญลักษณ์กำหนดเวลา
 | สี | ความหมาย |
-|----|-----------|
+|----|----------|
 | 🗓️ สีเทา | ยังไม่ถึงกำหนด |
 | 📅 สีส้ม | ครบกำหนดวันนี้ |
 | 🚨 สีแดง | เกินกำหนดแล้ว |
@@ -160,7 +202,7 @@ npm run dev
 
 **ค่าเริ่มต้น** (สร้างอัตโนมัติเมื่อสมัคร):
 | ไอคอน | ชื่อ | สี |
-|--------|------|----|
+|--------|------|-|
 | 💼 | Work | น้ำเงิน |
 | 🏠 | Personal | เขียว |
 | 🛒 | Shopping | เหลือง |
@@ -182,13 +224,18 @@ npm run dev
 TodoList/
 ├── backend/
 │   ├── main.py              # FastAPI app (models + routes ทั้งหมด)
-│   └── requirements.txt     # Python dependencies
+│   ├── requirements.txt     # Python dependencies
+│   ├── Dockerfile
+│   └── .dockerignore
 │
 ├── frontend/
 │   ├── index.html
 │   ├── package.json
-│   ├── vite.config.js       # Vite + proxy ไป backend
+│   ├── vite.config.js       # Vite + proxy ไป backend (dev)
 │   ├── tailwind.config.js
+│   ├── nginx.conf           # Nginx config สำหรับ production (Docker)
+│   ├── Dockerfile
+│   ├── .dockerignore
 │   └── src/
 │       ├── App.jsx           # Router + Protected routes
 │       ├── index.css         # Tailwind + custom components
@@ -208,7 +255,8 @@ TodoList/
 │           ├── TaskModal.jsx    # Modal เพิ่ม/แก้ไขงาน
 │           └── SearchFilter.jsx # ค้นหา + ตัวกรอง
 │
-├── start.sh                 # รัน backend + frontend พร้อมกัน
+├── docker-compose.yml       # Docker Compose สำหรับรันทั้งหมดพร้อมกัน
+├── start.sh                 # รัน backend + frontend (dev)
 └── README.md
 ```
 
@@ -225,6 +273,7 @@ TodoList/
 | Charts | Recharts |
 | HTTP Client | Axios |
 | Date | date-fns |
+| Container | Docker, Docker Compose, Nginx |
 
 ---
 
@@ -271,10 +320,16 @@ TodoList/
 ## ❓ คำถามที่พบบ่อย
 
 **Q: ลืม password ทำอย่างไร?**  
-A: ระบบยังไม่มี reset password ให้สมัคร account ใหม่หรือลบไฟล์ `backend/todolist.db` เพื่อล้างข้อมูลทั้งหมด
+A: ระบบยังไม่มี reset password ให้สมัคร account ใหม่หรือลบไฟล์ `backend/todolist.db` (manual) หรือรัน `docker compose down -v` (Docker) เพื่อล้างข้อมูลทั้งหมด
 
 **Q: ข้อมูลอยู่ที่ไหน?**  
-A: เก็บใน SQLite file ที่ `backend/todolist.db` (สร้างอัตโนมัติตอนรัน)
+A: Manual — เก็บใน SQLite file ที่ `backend/todolist.db` | Docker — เก็บใน volume `db_data` (จัดการโดย Docker)
 
-**Q: จะ deploy ขึ้น server ได้ไหม?**  
-A: ได้ แนะนำให้เปลี่ยน `SECRET_KEY` ใน `backend/main.py` และรัน `npm run build` สำหรับ frontend production build
+**Q: Deploy ขึ้น server จริงทำอย่างไร?**  
+A: ใช้ Docker Compose แล้วตั้งค่า environment variable `SECRET_KEY` ให้เป็น string ยาวแบบสุ่ม เช่น:
+```bash
+SECRET_KEY=$(openssl rand -hex 32) docker compose up -d --build
+```
+
+**Q: เปลี่ยน port ได้ไหม?**  
+A: ได้ แก้ไขใน `docker-compose.yml` ที่ส่วน `ports` เช่น เปลี่ยนจาก `"80:80"` เป็น `"8080:80"`
