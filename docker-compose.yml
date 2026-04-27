@@ -1,0 +1,35 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: todolist-backend
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=sqlite:////app/data/todolist.db
+    volumes:
+      - db_data:/app/data
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/docs || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: todolist-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  db_data:
+    driver: local
