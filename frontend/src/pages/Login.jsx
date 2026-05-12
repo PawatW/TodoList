@@ -1,13 +1,15 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import api from '../api'
 
 export default function Login() {
-  const { login } = useAuth()
+  const { login, loginWithData } = useAuth()
   const navigate = useNavigate()
   const [form, setForm] = useState({ username: '', password: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [demoLoading, setDemoLoading] = useState(false)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -20,6 +22,20 @@ export default function Login() {
       setError(err.response?.data?.detail || 'เข้าสู่ระบบล้มเหลว')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleDemo = async () => {
+    setError('')
+    setDemoLoading(true)
+    try {
+      const { data } = await api.post('/demo/seed')
+      loginWithData(data)
+      navigate('/')
+    } catch {
+      setError('ไม่สามารถโหลดข้อมูล Demo ได้')
+    } finally {
+      setDemoLoading(false)
     }
   }
 
@@ -61,10 +77,29 @@ export default function Login() {
                 required
               />
             </div>
-            <button type="submit" className="btn-primary w-full mt-2" disabled={loading}>
+            <button type="submit" className="btn-primary w-full mt-2" disabled={loading || demoLoading}>
               {loading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
             </button>
           </form>
+
+          <div className="relative my-5">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-slate-700" />
+            </div>
+            <div className="relative flex justify-center">
+              <span className="bg-slate-900 px-3 text-xs text-slate-500">หรือ</span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleDemo}
+            disabled={loading || demoLoading}
+            className="w-full py-2.5 px-4 rounded-lg border border-slate-600 bg-slate-800/60 text-slate-300 hover:bg-slate-700 hover:text-white hover:border-slate-500 transition-all text-sm font-medium"
+          >
+            {demoLoading ? 'กำลังโหลดข้อมูล...' : '🎯 ทดลองใช้ด้วยข้อมูล Demo'}
+          </button>
+
           <p className="text-center text-sm text-slate-400 mt-4">
             ยังไม่มีบัญชี?{' '}
             <Link to="/register" className="text-indigo-400 hover:text-indigo-300 font-medium">

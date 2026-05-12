@@ -13,7 +13,7 @@ from typing import Optional, List
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 
-# ── Config ────────────────────────────────────────────────────────────────────
+# ── Config ────────────────────────────────────────────────────────────────────────────
 SECRET_KEY = os.getenv("SECRET_KEY", "change-me-in-production-use-a-long-random-string")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
@@ -29,7 +29,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 
-# ── ORM Models ────────────────────────────────────────────────────────────────
+# ── ORM Models ─────────────────────────────────────────────────────────────────────────
 class Base(DeclarativeBase):
     pass
 
@@ -98,7 +98,7 @@ class Task(Base):
     tags = relationship("Tag", secondary=task_tags, back_populates="tasks")
 
 
-# ── Pydantic Schemas ──────────────────────────────────────────────────────────
+# ── Pydantic Schemas ──────────────────────────────────────────────────────────────────
 class UserCreate(BaseModel):
     username: str
     email: str
@@ -195,7 +195,7 @@ class TaskResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-# ── Auth Helpers ──────────────────────────────────────────────────────────────
+# ── Auth Helpers ──────────────────────────────────────────────────────────────────────────
 def verify_password(plain: str, hashed: str) -> bool:
     return pwd_context.verify(plain, hashed)
 
@@ -238,7 +238,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     return user
 
 
-# ── App ───────────────────────────────────────────────────────────────────────
+# ── App ────────────────────────────────────────────────────────────────────────────────
 app = FastAPI(title="TodoList API", version="1.0.0")
 
 app.add_middleware(
@@ -252,7 +252,7 @@ app.add_middleware(
 Base.metadata.create_all(bind=engine)
 
 
-# ── Auth Routes ───────────────────────────────────────────────────────────────
+# ── Auth Routes ─────────────────────────────────────────────────────────────────────────
 @app.post("/auth/register", response_model=Token)
 def register(payload: UserCreate, db: Session = Depends(get_db)):
     if db.query(User).filter(User.username == payload.username).first():
@@ -297,7 +297,7 @@ def get_me(current_user: User = Depends(get_current_user)):
     return current_user
 
 
-# ── Category Routes ───────────────────────────────────────────────────────────
+# ── Category Routes ───────────────────────────────────────────────────────────────────────
 @app.get("/categories", response_model=List[CategoryResponse])
 def list_categories(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     return db.query(Category).filter(Category.user_id == user.id).all()
@@ -334,7 +334,7 @@ def delete_category(cat_id: int, user: User = Depends(get_current_user), db: Ses
     return {"message": "Deleted"}
 
 
-# ── Tag Routes ────────────────────────────────────────────────────────────────
+# ── Tag Routes ────────────────────────────────────────────────────────────────────────────
 @app.get("/tags", response_model=List[TagResponse])
 def list_tags(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     return db.query(Tag).filter(Tag.user_id == user.id).all()
@@ -359,7 +359,7 @@ def delete_tag(tag_id: int, user: User = Depends(get_current_user), db: Session 
     return {"message": "Deleted"}
 
 
-# ── Task Routes ───────────────────────────────────────────────────────────────
+# ── Task Routes ──────────────────────────────────────────────────────────────────────────
 @app.get("/tasks", response_model=List[TaskResponse])
 def list_tasks(
     status: Optional[str] = Query(None),
@@ -443,7 +443,7 @@ def delete_task(task_id: int, user: User = Depends(get_current_user), db: Sessio
     return {"message": "Deleted"}
 
 
-# ── Dashboard Stats ───────────────────────────────────────────────────────────
+# ── Dashboard Stats ───────────────────────────────────────────────────────────────────────
 @app.get("/dashboard/stats")
 def dashboard_stats(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     base = db.query(Task).filter(Task.user_id == user.id)
@@ -502,3 +502,117 @@ def dashboard_stats(user: User = Depends(get_current_user), db: Session = Depend
         "by_priority": by_priority,
         "recent_tasks": [TaskResponse.model_validate(t) for t in recent],
     }
+
+
+# ── Demo Seed ─────────────────────────────────────────────────────────────────────────────
+@app.post("/demo/seed", response_model=Token)
+def seed_demo(db: Session = Depends(get_db)):
+    existing = db.query(User).filter(User.username == "demo").first()
+    if existing:
+        db.delete(existing)
+        db.commit()
+
+    user = User(
+        username="demo",
+        email="demo@todolist.app",
+        hashed_password=get_password_hash("demo1234"),
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    work     = Category(name="Work",     color="#3b82f6", icon="💼", user_id=user.id)
+    personal = Category(name="Personal", color="#10b981", icon="🏠", user_id=user.id)
+    shopping = Category(name="Shopping", color="#f59e0b", icon="🛒", user_id=user.id)
+    health   = Category(name="Health",   color="#ef4444", icon="❤️",  user_id=user.id)
+    db.add_all([work, personal, shopping, health])
+    db.commit()
+    for c in [work, personal, shopping, health]:
+        db.refresh(c)
+
+    t_urgent  = Tag(name="urgent",  color="#ef4444", user_id=user.id)
+    t_bug     = Tag(name="bug",     color="#f97316", user_id=user.id)
+    t_design  = Tag(name="design",  color="#8b5cf6", user_id=user.id)
+    t_review  = Tag(name="review",  color="#3b82f6", user_id=user.id)
+    t_meeting = Tag(name="meeting", color="#10b981", user_id=user.id)
+    db.add_all([t_urgent, t_bug, t_design, t_review, t_meeting])
+    db.commit()
+    for t in [t_urgent, t_bug, t_design, t_review, t_meeting]:
+        db.refresh(t)
+
+    now = datetime.utcnow()
+
+    def _task(title, desc="", status="todo", priority="medium",
+              due_days=None, cat=None, people=None, tags=None):
+        due = None
+        if due_days is not None:
+            due = (now + timedelta(days=due_days)).replace(hour=17, minute=0, second=0, microsecond=0)
+        t = Task(
+            title=title, description=desc,
+            status=status, priority=priority,
+            due_date=due,
+            category_id=cat.id if cat else None,
+            user_id=user.id,
+            assignees=people or [],
+        )
+        db.add(t)
+        db.flush()
+        t.tags = tags or []
+        return t
+
+    _task("ประชุมทีมประจำสัปดาห์",
+          "สรุปงานสัปดาห์ที่ผ่านมาและวางแผนสัปดาห์หน้า",
+          status="in_progress", priority="medium", due_days=0,
+          cat=work, people=["Alice", "Bob"], tags=[t_meeting])
+    _task("ส่งรายงานยอดขายประจำเดือน",
+          "รวบรวมข้อมูลยอดขายและจัดทำ Excel report",
+          status="done", priority="high", due_days=-3,
+          cat=work, people=["Charlie"], tags=[t_urgent])
+    _task("รีวิว Pull Request ของทีม",
+          "ตรวจสอบโค้ดก่อน merge เข้า main branch ให้ครบถ้วน",
+          status="todo", priority="high", due_days=1,
+          cat=work, tags=[t_review, t_urgent])
+    _task("อัปเดต Design System",
+          "ปรับ color palette และ typography ใหม่ตาม brand guideline",
+          status="in_progress", priority="medium", due_days=7,
+          cat=work, people=["Alice"], tags=[t_design])
+    _task("แก้บั๊กหน้า Login ไม่แสดง error message",
+          "เมื่อกรอก password ผิด ข้อความ error ไม่ปรากฏใน mobile",
+          status="todo", priority="high", due_days=-2,
+          cat=work, people=["Bob"], tags=[t_bug, t_urgent])
+    _task("เขียน Unit Test สำหรับ API",
+          "ครอบคลุม endpoints หลัก ทั้ง auth, tasks, categories",
+          status="todo", priority="medium", due_days=10,
+          cat=work, tags=[t_review])
+    _task("ซื้อของขวัญวันเกิดแม่",
+          "งบไม่เกิน 500 บาท ร้านอยู่แถวห้างใกล้บ้าน",
+          status="todo", priority="medium", due_days=5,
+          cat=personal)
+    _task("ออกกำลังกาย 30 นาที",
+          "วิ่งรอบหมู่บ้านหรือปั่นจักรยานในสวน",
+          status="done", priority="low", cat=personal)
+    _task("อ่านหนังสือ Clean Code",
+          "อ่านให้ครบ 2 บทต่อสัปดาห์",
+          status="in_progress", priority="low", due_days=30, cat=personal)
+    _task("ซื้อน้ำยาล้างจาน + น้ำยาปรับผ้านุ่ม",
+          status="todo", priority="low", cat=shopping)
+    _task("สั่งซื้อเก้าอี้ทำงาน Ergonomic",
+          "งบ 3,000–5,000 บาท เช็คโปรโมชัน Shopee",
+          status="done", priority="medium", due_days=-4, cat=shopping)
+    _task("นัดหมอตรวจสุขภาพประจำปี",
+          "โรงพยาบาลใกล้บ้าน ตรวจเลือด + เอกซเรย์",
+          status="todo", priority="high", due_days=30, cat=health)
+    _task("กินยาตามแพทย์สั่งครบ 14 วัน",
+          "กินหลังอาหารเช้าและเย็น ไม่ควรลืม",
+          status="in_progress", priority="high", due_days=0, cat=health)
+    _task("เรียนคอร์ส React Advanced",
+          "คอร์ส Udemy ที่ซื้อไว้แล้ว ยังไม่ได้เริ่มเลย",
+          status="todo", priority="medium", tags=[t_design])
+    _task("ทำ Side Project Portfolio Website",
+          "สร้าง portfolio ด้วย Next.js แสดงผลงานที่ผ่านมา",
+          status="in_progress", priority="low", due_days=30, tags=[t_design])
+
+    db.commit()
+
+    token = create_access_token({"sub": user.username}, timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+    return Token(access_token=token, token_type="bearer", user=UserResponse.model_validate(user))
